@@ -1,0 +1,48 @@
+version: '3'
+
+services:
+  rabbitmq-service:
+    image: rabbitmq:management
+    container_name: response-reply-prj-rabbitmq-container
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - amqp-request-reply
+  gateway-service:
+    container_name: gateway-container
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - amqp-request-reply
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq-service
+    depends_on:
+      rabbitmq-service:
+        condition: service_healthy
+  item-service-service:
+    container_name: item-service-container
+    build:
+      context: ./item-service
+      dockerfile: Dockerfile
+    networks:
+      - amqp-request-reply
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq-service
+    depends_on:
+      rabbitmq-service:
+        condition: service_healthy
+networks:
+  amqp-request-reply:
+    driver: bridge
